@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    
+    site reader
+    <canvas id="chart"></canvas>
+</body>
+
+<script>
+    var canvas = document.getElementById('chart')
+    var prices = new Chart(canvas , {
+        type : 'line',
+        data :{
+            label : [],
+            datasets:[{
+                label: 'price',
+                data : []
+            }]
+        }
+    })
+    var interval = 3000
+    var  fromDate;
+    async function getData(){
+        console.log(interval)
+        
+        try {
+            let res = await fetch('/short');
+            let data = await res.json();
+            prices.data.labels = data.map(i=> i.created)
+            prices.data.datasets[0].data = data.map(i=>i.price)
+            prices.update()
+        
+
+        }catch(e){
+            console.log(e)
+            
+        }
+        connectToSocket()
+        
+
+    }
+    async function getLongData(){
+        try {
+            fromDate = new Date()
+            let res = await fetch('/long?from='+fromDate.toISOString());
+            let data = await res.json();
+            if (data.length > 0){
+                prices.data.labels.push(data.map(i=> i.created));
+                prices.data.datasets[0].data.push(data.map(i=>i.price))
+                prices.update()
+            }
+
+        }catch(e){
+            console.log(e)
+            interval = interval *2;
+        }
+        
+        setTimeout(getLongData,interval)
+        
+    }
+    function connectToSocket(){
+        const socket = new WebSocket('ws://127.0.0.1:8000/prices')
+        socket.onmessage = function(e){
+            const data = JSON.parse(e.data)
+            console.log(data)
+            prices.data.labels.push(data.created);
+            prices.data.datasets[0].data.push(data.price)
+            prices.update()
+        }
+    }
+
+    getData()
+
+
+</script>
+</html>
